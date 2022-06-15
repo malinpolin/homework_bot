@@ -156,6 +156,7 @@ def check_tokens():
     return flag
 
 
+# flake8: noqa: C901
 def main():
     """Основная логика работы бота."""
     logging.debug('Бот запущен')
@@ -167,6 +168,7 @@ def main():
         bot = telegram.Bot(token=TELEGRAM_TOKEN)
     except telegram.error.InvalidToken:
         logging.error(f'Невалидный Telegram-token "{TELEGRAM_TOKEN}"')
+    bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time.time())
     while True:
         try:
