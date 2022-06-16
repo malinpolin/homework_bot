@@ -18,13 +18,11 @@ from http import HTTPStatus
 
 from exceptions import (
     HomeworksKeyError,
-    InvalidTypeResponseError,
     HomeworksTypeError,
     MissingEnvVarError,
     StatusCodeError,
     StatusKeyError,
     UnknownHomeworkStatusError,
-    EmptyHomeworkNameError,
 )
 
 
@@ -32,11 +30,7 @@ load_dotenv()
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
-ENV_VARS = {
-    'PRACTICUM_TOKEN': PRACTICUM_TOKEN,
-    'TELEGRAM_TOKEN': TELEGRAM_TOKEN,
-    'TELEGRAM_CHAT_ID': TELEGRAM_CHAT_ID,
-}
+ENV_VARS = ('PRACTICUM_TOKEN', 'TELEGRAM_TOKEN',  'TELEGRAM_CHAT_ID')
 RETRY_TIME = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
@@ -98,7 +92,7 @@ def check_response(response):
             f'{type(response)}"'
         )
         logging.error(message)
-        raise InvalidTypeResponseError(message)
+        raise TypeError(message)
     if 'homeworks' not in response.keys():
         message = (
             "В ответе от API отсутствует ключ 'homeworks': "
@@ -135,7 +129,7 @@ def parse_status(homework):
     if homework_name is None:
         message = "В ответе от API отсутствует ключ 'homework_name'"
         logging.error(message)
-        raise EmptyHomeworkNameError(message)
+        raise KeyError(message)
     if homework_status not in HOMEWORK_STATUSES.keys():
         message = f'Неизвестный статус домашней работы: {homework_status}'
         logging.error(message)
@@ -147,12 +141,14 @@ def parse_status(homework):
 def check_tokens():
     """Проверяем доступность переменных окружения."""
     flag = True
-    for name, value in ENV_VARS.items():
-        if (name not in dict(os.environ).keys()) or (value is None):
+    for v in ENV_VARS:
+        #if (v not in dict(os.environ).keys()) or (dict(os.environ).get(v) is None):
+        if (v not in globals().keys()) or (globals().get(v) is None):
             flag = False
             message = 'Отсутствует обязательная переменная окружения'
-            logging.critical(f'{message}: {name}.')
-            raise MissingEnvVarError(name, message)
+            logging.critical(f'{message}: {v}.')
+            global ev
+            ev = v
     return flag
 
 
@@ -163,7 +159,8 @@ def main():
     prev_error = ''
     curr_status = ''
     prev_status = ''
-    check_tokens()
+    if not check_tokens():
+        raise MissingEnvVarError(ev)
     try:
         bot = telegram.Bot(token=TELEGRAM_TOKEN)
     except telegram.error.InvalidToken:
@@ -173,9 +170,9 @@ def main():
     while True:
         try:
             response = get_api_answer(current_timestamp)
-            status = check_response(response)
-            if len(status) > 0:
-                homework = status[0]
+            homeworks = check_response(response)
+            if len(homeworks) > 0:
+                homework = homeworks[0]
                 curr_status = parse_status(homework)
                 current_timestamp = response.get('current_timestamp')
             if curr_status != prev_status:

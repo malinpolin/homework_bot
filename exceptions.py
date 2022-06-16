@@ -2,7 +2,7 @@ class MissingEnvVarError(Exception):
     """Исключение возникает при отсутствии обязательной 
     переменной окружения.
     """
-    def __init__(self, var_name, message):
+    def __init__(self, var_name, message='Отсутствует обязательная переменная окружения'):
         self.message = message
         self.var_name = var_name
 
