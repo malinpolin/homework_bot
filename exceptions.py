@@ -50,3 +50,7 @@ class EmptyHomeworkNameError(Exception):
     остутствует ключ 'homework_name'."""
     ...
 
+class CurrentTimestampTypeError(Exception):
+    """Исключение возникает, если от API пришло невалидное
+    значение ключа 'current_date'."""
+    ...

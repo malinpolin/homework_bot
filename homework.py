@@ -23,6 +23,7 @@ from exceptions import (
     StatusCodeError,
     StatusKeyError,
     UnknownHomeworkStatusError,
+    CurrentTimestampTypeError,
 )
 
 
@@ -31,7 +32,7 @@ PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 ENV_VARS = ('PRACTICUM_TOKEN', 'TELEGRAM_TOKEN',  'TELEGRAM_CHAT_ID')
-RETRY_TIME = 600
+RETRY_TIME = 30
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 HOMEWORK_STATUSES = {
@@ -39,12 +40,13 @@ HOMEWORK_STATUSES = {
     'reviewing': 'Работа взята на проверку ревьюером.',
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
+LOG_PATH = os.path.dirname(__file__)
 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
-        logging.FileHandler('main.log'),
+        logging.FileHandler(f'{LOG_PATH}\main.log'),
         logging.StreamHandler(sys.stdout)
     ]
 )
@@ -52,11 +54,11 @@ logging.basicConfig(
 
 def send_message(bot, message):
     """Отправляем сообщение в Telegram и логгируем событие."""
-    try:
-        bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+    if bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message):
         logging.info(f'Бот отправил сообщение "{message}"')
-    except telegram.TelegramError as error:
-        logging.error(f'Сбой при отправке сообщения "{message}": {error}')
+    else:
+        logging.error(f'Сбой при отправке сообщения "{message}"')
+        raise telegram.TelegramError 
     return True
 
 
@@ -140,16 +142,19 @@ def parse_status(homework):
 
 def check_tokens():
     """Проверяем доступность переменных окружения."""
-    flag = True
     for v in ENV_VARS:
-        #if (v not in dict(os.environ).keys()) or (dict(os.environ).get(v) is None):
+        #if (v not in dict(os.environ).kes()) or (dict(os.environ).get(v) is None):
+        # почему условие сверху не проходит тесты? 
+        # оно же проверяет именно в словаре переменных окружения
+        # а пространство глобальных переменных, оно же по идее больше 
+        # и отличается от пространства переменных окружения?
         if (v not in globals().keys()) or (globals().get(v) is None):
-            flag = False
             message = 'Отсутствует обязательная переменная окружения'
             logging.critical(f'{message}: {v}.')
             global ev
             ev = v
-    return flag
+            return False
+    return True
 
 
 # flake8: noqa: C901
@@ -164,8 +169,10 @@ def main():
     try:
         bot = telegram.Bot(token=TELEGRAM_TOKEN)
     except telegram.error.InvalidToken:
+    # в папке temp лежит скрин, если токен невалидный, он его ловит
         logging.error(f'Невалидный Telegram-token "{TELEGRAM_TOKEN}"')
-    bot = telegram.Bot(token=TELEGRAM_TOKEN)
+    except telegram.error.TelegramError as error:
+        logging.error(f'Ошибка инициализации бота: {error}')
     current_timestamp = int(time.time())
     while True:
         try:
@@ -174,7 +181,14 @@ def main():
             if len(homeworks) > 0:
                 homework = homeworks[0]
                 curr_status = parse_status(homework)
-                current_timestamp = response.get('current_timestamp')
+                current_timestamp = response.get('current_date')
+            if type(current_timestamp) != int:
+                message = (
+                "Сервер вернул невалидное значение ключа 'current_date': "
+                f'{current_timestamp}'
+                )
+                logging.error(message)
+                raise CurrentTimestampTypeError(message)
             if curr_status != prev_status:
                 if send_message(bot, curr_status):
                     prev_status = curr_status
