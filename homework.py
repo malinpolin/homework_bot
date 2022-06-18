@@ -113,12 +113,12 @@ def check_response(response):
         logging.error(message)
         raise HomeworksTypeError(message)
     if type(response.get('current_date')) != int:
-                message = (
-                "Сервер вернул невалидное значение ключа 'current_date': "
-                f"{response.get('current_date')}"
-                )
-                logging.error(message)
-                raise CurrentTimestampTypeError(message)
+        message = (
+            "Сервер вернул невалидное значение ключа 'current_date': "
+            f"{response.get('current_date')}"
+        )
+        logging.error(message)
+        raise CurrentTimestampTypeError(message)
     return response.get('homeworks')
 
 
