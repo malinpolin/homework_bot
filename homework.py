@@ -112,6 +112,13 @@ def check_response(response):
         )
         logging.error(message)
         raise HomeworksTypeError(message)
+    if type(response.get('current_date')) != int:
+                message = (
+                "Сервер вернул невалидное значение ключа 'current_date': "
+                f"{response.get('current_date')}"
+                )
+                logging.error(message)
+                raise CurrentTimestampTypeError(message)
     return response.get('homeworks')
 
 
@@ -182,13 +189,6 @@ def main():
                 homework = homeworks[0]
                 curr_status = parse_status(homework)
                 current_timestamp = response.get('current_date')
-            if type(current_timestamp) != int:
-                message = (
-                "Сервер вернул невалидное значение ключа 'current_date': "
-                f'{current_timestamp}'
-                )
-                logging.error(message)
-                raise CurrentTimestampTypeError(message)
             if curr_status != prev_status:
                 if send_message(bot, curr_status):
                     prev_status = curr_status
